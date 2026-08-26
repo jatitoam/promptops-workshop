@@ -77,6 +77,9 @@ function cosineSimilarity(a: number[], b: number[]): number {
 export async function retrieve(query: string, k = 4): Promise<RetrievedChunk[]> {
   const index = loadIndex();
 
+  // El timeout no es paranoia: la API de Gemini en capa gratuita se cuelga de
+  // forma intermitente sin devolver error (medido: 2 de cada 6 peticiones).
+  // Sin límite, el bloque 3 se congela sin explicación. Ver `GOTCHAS.md` G-16.
   const { embedding } = await embed({
     model: google.textEmbeddingModel(EMBEDDING_MODEL),
     value: query,
@@ -86,6 +89,8 @@ export async function retrieve(query: string, k = 4): Promise<RetrievedChunk[]> 
         taskType: "RETRIEVAL_QUERY",
       },
     },
+    abortSignal: AbortSignal.timeout(20_000),
+    maxRetries: 2,
   });
 
   if (embedding.length !== index.dimensions) {

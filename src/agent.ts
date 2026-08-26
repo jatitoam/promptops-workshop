@@ -5,11 +5,18 @@
  * `promptops-demo/demo/chatbot/app.py`) a TypeScript + Gemini. Mismo orden
  * de pasos: RAG → cuenta (mock MCP) → prompt compilado → generación.
  *
- * Todavía SIN instrumentación de Langfuse (spans) — eso es la tarea 2.2.
+ * Instrumentación de Langfuse (tarea 2.2): el turno completo corre dentro de
+ * un span raíz `support_chat`, con `rag_retrieve` y `mcp_account_lookup`
+ * como spans hijos creados aquí mismo — `rag.ts` y `tools.ts` se quedan
+ * puros, sin saber que Langfuse existe. Sin instrumentación activa (sin
+ * `--trace`, o sin credenciales de Langfuse) estas llamadas son no-op sobre
+ * el tracer global de OpenTelemetry: `answerUser()` funciona exactamente
+ * igual. Ver `telemetry.ts`.
  */
 
 import { generateText } from "ai";
 import { google } from "@ai-sdk/google";
+import { startActiveObservation } from "@langfuse/tracing";
 
 import { retrieve, type RetrievedChunk } from "./rag.ts";
 import { lookupAccount, type AccountLookupResult } from "./tools.ts";
@@ -54,6 +61,53 @@ const GOOGLE_PROVIDER_OPTIONS = providerOptionsPara(GENERATION_MODEL);
  * piense Y responda; con el razonamiento apagado, 512 son todos de respuesta.
  */
 const MAX_OUTPUT_TOKENS_EFECTIVO = GOOGLE_PROVIDER_OPTIONS ? MAX_OUTPUT_TOKENS : MAX_OUTPUT_TOKENS * 4;
+
+/**
+ * Tiempo máximo por llamada al modelo, y reintentos.
+ *
+ * No es paranoia: medido el 2026-08-26, la API de Gemini en capa gratuita
+ * **se queda colgada de forma intermitente** — 2 de cada 6 peticiones idénticas
+ * no respondieron nunca (>12 s, abortadas), mientras el resto volvía en menos
+ * de un segundo. No devuelve error: simplemente no contesta.
+ *
+ * Sin límite de tiempo, la CLI se cuelga indefinidamente, y en un salón eso se
+ * lee como "se me trabó" sin ninguna pista de por qué. Con límite, se convierte
+ * en un reintento automático y, si insiste, un mensaje claro en español.
+ * Ver `GOTCHAS.md` G-16.
+ */
+const TIMEOUT_MODELO_MS = 15_000;
+const INTENTOS = 3;
+
+/**
+ * Reintenta una llamada al modelo dándole a CADA intento su propio límite de
+ * tiempo.
+ *
+ * Ojo con el detalle que hace inútil la vía obvia: pasar un solo
+ * `abortSignal: AbortSignal.timeout(...)` junto con `maxRetries` del AI SDK
+ * **no funciona** — esa señal aborta la operación entera, reintentos incluidos,
+ * así que el SDK nunca llega a reintentar. Medido: el mensaje decía "se
+ * reintentó 2 veces" y el reloj marcaba un solo timeout. Por eso el bucle es
+ * nuestro y la señal se crea de nuevo en cada intento.
+ */
+async function conReintentos<T>(fn: (signal: AbortSignal) => Promise<T>): Promise<T> {
+  let ultimoError: unknown;
+  for (let intento = 1; intento <= INTENTOS; intento++) {
+    try {
+      return await fn(AbortSignal.timeout(TIMEOUT_MODELO_MS));
+    } catch (err) {
+      ultimoError = err;
+      const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
+      const esTimeout = msg.includes("abort") || msg.includes("timeout") || msg.includes("timed out");
+      // Solo se reintenta un cuelgue. Una key inválida o un 404 de modelo no
+      // mejoran repitiendo: fallan rápido y con su mensaje propio.
+      if (!esTimeout || intento === INTENTOS) throw err;
+      console.error(
+        `(aviso) la API no respondió en ${TIMEOUT_MODELO_MS / 1000} s — reintento ${intento} de ${INTENTOS - 1}…`,
+      );
+    }
+  }
+  throw ultimoError;
+}
 
 export interface AnswerUserOptions {
   /** Mensaje del cliente. */
@@ -120,6 +174,17 @@ function toActionableError(err: unknown): Error {
         `al instructor, puede ser un problema de la cuenta de Google AI Studio. Detalle: ${message}`,
     );
   }
+  if (
+    lower.includes("abort") ||
+    lower.includes("timeout") ||
+    lower.includes("timed out")
+  ) {
+    return new Error(
+      `La API de Gemini no respondió en ninguno de los ${INTENTOS} intentos ` +
+        `(${TIMEOUT_MODELO_MS / 1000} s cada uno). No es tu configuración: la capa gratuita se ` +
+        "cuelga de vez en cuando sin devolver error. Vuelve a correr el mismo comando.",
+    );
+  }
   return new Error(`Falló la generación con Gemini: ${message}`);
 }
 
@@ -135,42 +200,104 @@ export async function answerUser({
   useRag = true,
   ragK = 4,
 }: AnswerUserOptions): Promise<AnswerUserResult> {
-  // 1. RAG — opcional según el bloque del taller.
-  const policyChunks = useRag ? await retrieve(userMsg, ragK) : [];
+  return startActiveObservation("support_chat", async (rootSpan) => {
+    // ⚠️ La forma de este `input` es CONTRATO, no un detalle.
+    //
+    // El evaluador del juez (tarea 2.4) se mapea con un jsonPath sobre este
+    // campo, y un jsonPath mal puesto no da error: hace que **todo apruebe en
+    // silencio**, que es el fallo más caro del taller. Medido contra una traza
+    // real: Langfuse guarda este objeto **tal cual**, sin envoltorio — en la
+    // versión Python el decorador `@observe` lo envolvía y obligaba a usar
+    // `$.kwargs.user_msg`; aquí no. El jsonPath correcto es `$.user_msg`.
+    //
+    // Las claves van en snake_case a propósito, para que coincidan con las de
+    // `data/dataset.json` (`input.user_msg`): así el mismo evaluador sirve
+    // tanto para el chat en vivo como para las corridas del experimento, y
+    // quien compare un caso del dataset con su traza ve el mismo vocabulario.
+    // Ver `GOTCHAS.md` G-15.
+    rootSpan.update({ input: { user_msg: userMsg, prompt_label: promptLabel } });
 
-  // 2. Mock MCP — contexto de cuenta.
-  const account = lookupAccount(userId);
+    try {
+      // 1. RAG — opcional según el bloque del taller.
+      //
+      // Nota: se usa `startActiveObservation` (no `rootSpan.startObservation`)
+      // porque `retrieve()` hace su propia llamada instrumentada (`embed()`
+      // vía la integración de Vercel AI SDK), que se cuelga del span
+      // *activo* en el contexto de OpenTelemetry — `startObservation` crea
+      // el span pero no lo activa, así que el embedding quedaría como
+      // hermano de `rag_retrieve` bajo `support_chat` en vez de anidado
+      // dentro. `startActiveObservation` sí empuja el contexto.
+      let policyChunks: RetrievedChunk[] = [];
+      if (useRag) {
+        policyChunks = await startActiveObservation(
+          "rag_retrieve",
+          async (ragSpan) => {
+            ragSpan.update({ input: { query: userMsg, k: ragK } });
+            const chunks = await retrieve(userMsg, ragK);
+            ragSpan.update({ output: chunks });
+            return chunks;
+          },
+        );
+      }
 
-  // 3. Prompt compilado (Langfuse con fallback local).
-  const { system, userMessage, origin } = await getPrompt(promptLabel, {
-    policy_chunks: formatPolicyChunks(policyChunks),
-    account_json: JSON.stringify(account),
-    user_msg: userMsg,
+      // 2. Mock MCP — contexto de cuenta.
+      const account = await startActiveObservation(
+        "mcp_account_lookup",
+        (acctSpan) => {
+          acctSpan.update({ input: { userId } });
+          const result = lookupAccount(userId);
+          acctSpan.update({ output: result });
+          return result;
+        },
+      );
+
+      // 3. Prompt compilado (Langfuse con fallback local).
+      const { system, userMessage, origin } = await getPrompt(promptLabel, {
+        policy_chunks: formatPolicyChunks(policyChunks),
+        account_json: JSON.stringify(account),
+        user_msg: userMsg,
+      });
+
+      // 4. Generación. Trazada como observación tipo `generation` por la
+      // integración de Vercel AI SDK registrada en `initTelemetry()` — no
+      // hace falta pasar `telemetry` aquí, queda activa por defecto en
+      // cuanto hay una integración registrada globalmente.
+      let reply: string;
+      try {
+        const { text } = await conReintentos((abortSignal) =>
+          generateText({
+            model: google(GENERATION_MODEL),
+            system,
+            prompt: userMessage,
+            temperature: TEMPERATURE,
+            maxOutputTokens: MAX_OUTPUT_TOKENS_EFECTIVO,
+            providerOptions: GOOGLE_PROVIDER_OPTIONS,
+            abortSignal,
+            maxRetries: 0,
+          }),
+        );
+        reply = text;
+      } catch (err) {
+        throw toActionableError(err);
+      }
+
+      rootSpan.update({ output: reply });
+
+      return {
+        reply,
+        policyChunks,
+        account,
+        promptLabel,
+        promptOrigin: origin,
+      };
+    } catch (err) {
+      rootSpan.update({
+        level: "ERROR",
+        statusMessage: err instanceof Error ? err.message : String(err),
+      });
+      throw err;
+    }
   });
-
-  // 4. Generación.
-  let reply: string;
-  try {
-    const { text } = await generateText({
-      model: google(GENERATION_MODEL),
-      system,
-      prompt: userMessage,
-      temperature: TEMPERATURE,
-      maxOutputTokens: MAX_OUTPUT_TOKENS_EFECTIVO,
-      providerOptions: GOOGLE_PROVIDER_OPTIONS,
-    });
-    reply = text;
-  } catch (err) {
-    throw toActionableError(err);
-  }
-
-  return {
-    reply,
-    policyChunks,
-    account,
-    promptLabel,
-    promptOrigin: origin,
-  };
 }
 
 export interface AskRawOptions {
@@ -189,13 +316,17 @@ export interface AskRawResult {
  */
 export async function askRaw({ userMsg }: AskRawOptions): Promise<AskRawResult> {
   try {
-    const { text } = await generateText({
-      model: google(GENERATION_MODEL),
-      prompt: userMsg,
-      temperature: TEMPERATURE,
-      maxOutputTokens: MAX_OUTPUT_TOKENS_EFECTIVO,
-      providerOptions: GOOGLE_PROVIDER_OPTIONS,
-    });
+    const { text } = await conReintentos((abortSignal) =>
+      generateText({
+        model: google(GENERATION_MODEL),
+        prompt: userMsg,
+        temperature: TEMPERATURE,
+        maxOutputTokens: MAX_OUTPUT_TOKENS_EFECTIVO,
+        providerOptions: GOOGLE_PROVIDER_OPTIONS,
+        abortSignal,
+        maxRetries: 0,
+      }),
+    );
     return { reply: text };
   } catch (err) {
     throw toActionableError(err);

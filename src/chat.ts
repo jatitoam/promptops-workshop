@@ -23,6 +23,7 @@ loadEnv();
 
 const { parseArgs } = await import("node:util");
 const { answerUser, askRaw } = await import("./agent.ts");
+const { initTelemetry, shutdownTelemetry } = await import("./telemetry.ts");
 type PromptLabel = "v1-terse" | "v2-empathetic" | "v3-compliant" | "production";
 
 const CONSULTA_CANONICA =
@@ -69,8 +70,11 @@ ${bold("Modos (uno por bloque del taller):")}
       Bloque 3 — con RAG, imprimiendo los chunks recuperados.
 
   ${cyan("npm run chat -- --trace")}
-      Bloque 5 — igual que --rag + instrumentación (tarea 2.2, aún no
-      implementada). Por ahora corre en modo --rag y avisa.
+      Bloque 5 — igual que --rag + instrumentación con Langfuse. El turno
+      queda como un span raíz "support_chat" con hijos "rag_retrieve" y
+      "mcp_account_lookup", más la generación. Requiere LANGFUSE_PUBLIC_KEY
+      / LANGFUSE_SECRET_KEY en el .env; sin ellas corre igual pero sin
+      trazar nada.
 
 ${bold("Opciones:")}
   --naked              Modo desnudo: sin system prompt ni RAG.
@@ -79,8 +83,8 @@ ${bold("Opciones:")}
                         largos: v1-terse, v2-empathetic, v3-compliant).
                         Por defecto: v3.
   --rag                Activa el retrieval e imprime los chunks recuperados.
-  --trace              Implica --rag. La instrumentación llega en el
-                        bloque 5 / tarea 2.2 — todavía no existe.
+  --trace              Implica --rag. Activa la instrumentación con
+                        Langfuse (bloque 5).
   -m, --message <texto> La consulta del cliente. Por defecto la consulta
                         canónica del taller:
                         "${CONSULTA_CANONICA}"
@@ -209,14 +213,20 @@ async function main(): Promise<void> {
   const promptLabel = resolvePromptLabel(values.prompt as string | undefined);
 
   if (trace) {
+    const activa = initTelemetry();
     console.log(
-      yellow("⚠️  --trace: la instrumentación (spans de Langfuse) es la tarea 2.2 y todavía no ") +
-        yellow("existe.\n    Por ahora este comando corre igual que --rag, sin trazar nada."),
+      activa
+        ? green("✓ Instrumentación de Langfuse activa — este turno queda trazado como ") +
+            green('"support_chat".')
+        : yellow(
+            "⚠️  --trace pedido pero faltan LANGFUSE_PUBLIC_KEY / LANGFUSE_SECRET_KEY en `.env` — " +
+              "corre sin trazar nada.",
+          ),
     );
     console.log("");
   }
 
-  const modo = rag ? "bloque 3 — con RAG" : "bloque 2 — sin RAG";
+  const modo = trace ? "bloque 5 — con trace" : rag ? "bloque 3 — con RAG" : "bloque 2 — sin RAG";
 
   // El encabezado se imprime ANTES de llamar al modelo, a propósito: la
   // generación tarda varios segundos y, proyectada en pantalla delante del
@@ -246,9 +256,16 @@ async function main(): Promise<void> {
 }
 
 main()
-  .then(() => process.exit(0))
-  .catch((err: unknown) => {
+  .then(async () => {
+    // Flush obligatorio: un CLI de un solo turno que sale sin vaciar el
+    // processor de spans pierde la traza en silencio (no da error — solo
+    // no aparece nada en Langfuse). Inocuo si --trace nunca se activó.
+    await shutdownTelemetry();
+    process.exit(0);
+  })
+  .catch(async (err: unknown) => {
     const message = err instanceof Error ? err.message : String(err);
     console.error(red("✖ ") + message);
+    await shutdownTelemetry();
     process.exit(1);
   });
