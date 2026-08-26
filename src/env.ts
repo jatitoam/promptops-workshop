@@ -34,6 +34,11 @@ export function loadEnv(): void {
 
   loadDotenv({ quiet: true });
 
+  // El SDK de Langfuse habla bastante en INFO/DEBUG. En un taller proyectado
+  // solo interesan advertencias y errores. Se puede subir el detalle poniendo
+  // LANGFUSE_LOG_LEVEL=DEBUG en el .env cuando algo no cuadre.
+  process.env.LANGFUSE_LOG_LEVEL ||= "WARN";
+
   const baseUrl = process.env.LANGFUSE_BASE_URL?.trim();
   const host = process.env.LANGFUSE_HOST?.trim();
 
