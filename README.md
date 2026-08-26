@@ -12,7 +12,7 @@ La tesis: *genera con un modelo, júzgalo con otro más fuerte y una rúbrica ex
 | **`SETUP.md`** | **Antes del taller.** Crear las tres cuentas, instalar Node 22, clonar, `npm install`. |
 | Este `README.md` | Al arrancar, y como referencia de comandos durante el taller. |
 | **`BLOQUE-5.md`** | Durante el bloque 5, cuando el instructor lo indique. |
-| `RUNBOOK.md` | Es el guion **del instructor**. No hace falta leerlo para participar. |
+| — | El guion del instructor y la preparación de la sala **no están en este repo**: viven con el resto del material del instructor. |
 
 ## Requisitos
 
