@@ -1,0 +1,27 @@
+{
+  "name": "promptops-workshop",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "doctor": "tsx src/doctor.ts",
+    "chat": "tsx src/chat.ts",
+    "seed:prompts": "tsx seed/prompts.ts",
+    "seed:dataset": "tsx seed/dataset.ts",
+    "seed:judge": "tsx seed/judge.ts",
+    "seed:index": "tsx seed/build-index.ts",
+    "experiment": "tsx src/experiment.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^26.3.0",
+    "tsx": "^4.23.12",
+    "typescript": "^7.0.2"
+  }
+}
