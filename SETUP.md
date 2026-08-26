@@ -1,17 +1,16 @@
 # SETUP — Taller PromptOps
 
-Este documento tiene dos audiencias. Léelas por separado:
+Qué hacer **antes** de llegar al taller. Léelo entero: son quince minutos ahora que
+evitan perder media hora del salón después.
 
-- **[A) Participantes](#a-participantes)** — qué hacer *antes* de llegar al taller.
-- **[B) Organizadores](#b-organizadores)** — qué preparar en la sala y las máquinas.
+> La preparación de la sala y las máquinas (red, proyector, enchufes) no está aquí —
+> la llevan los organizadores por separado.
 
 El taller son **3 horas continuas, sin recesos**. Todo lo que se pueda resolver antes
 de sentarse (cuentas, instalación, red) se resuelve antes. Si algo de esto se descubre
 en vivo, se pierde tiempo de taller para todo el grupo, no solo para quien lo descubre.
 
 ---
-
-## A) Participantes
 
 Construyes, instrumentas y **mides** un chatbot de soporte bancario (BanCentral GT,
 ficticio) en TypeScript, con Gemini como generador y Groq como juez, medido en
@@ -119,63 +118,6 @@ trae el correcto — no lo renombres.
 
 ---
 
-## B) Organizadores
-
-### Máquinas de la sala
-
-- **Node 22 LTS preinstalado** (o `nvm` disponible — el repo trae `.nvmrc`).
-- Git y un editor de texto (VS Code u otro).
-- Conexión a internet estable — el taller depende de tres APIs en vivo, no funciona
-  offline.
-
-### 🚨 Salida de firewall — verificar DESDE LA RED DEL SALÓN
-
-No verifiques esto desde la oficina: el resultado no es transferible. Verifica desde
-el mismo wifi/red que usarán los participantes el día del taller.
-
-Tres destinos necesarios:
-
-- `generativelanguage.googleapis.com` (Gemini — generador y embeddings)
-- `cloud.langfuse.com` y `us.cloud.langfuse.com` (Langfuse — el proyecto del taller
-  vive en la región US, no la UE)
-- `api.groq.com` (Groq — el juez)
-
-Comando de comprobación rápida (solo imprime el código HTTP, no requiere saber nada
-del taller ni tener ninguna key):
-
-```bash
-for host in generativelanguage.googleapis.com us.cloud.langfuse.com cloud.langfuse.com api.groq.com; do
-  echo -n "$host -> "
-  curl -s -o /dev/null -w "%{http_code}\n" --max-time 10 "https://$host"
-done
-```
-
-Cualquier código HTTP (200, 404, 401, lo que sea) significa que **hay salida** — el
-firewall no está bloqueando el destino. Lo que hay que perseguir es un timeout, o una
-línea que no imprime nada (ahí sí hay un problema de red que resolver antes del día
-del taller, no durante).
-
-### Proyector y sala
-
-- Proyector legible desde el fondo: el 85 % del taller ocurre en una terminal y en la
-  UI de Langfuse — texto pequeño en cualquiera de las dos mata la sesión desde la fila 4.
-- Enchufes suficientes para todas las laptops: son 3 horas seguidas sin receso, con la
-  laptop trabajando todo el tiempo.
-- Wifi con capacidad para todo el grupo simultáneo (llamadas de red constantes a tres
-  APIs distintas por persona).
-
-### Checklist final — organizadores
-
-- [ ] Node 22 LTS (o `nvm`) preinstalado en las máquinas del salón
-- [ ] Git y editor de texto preinstalados
-- [ ] Los 4 hosts de la comprobación de firewall responden, probado **desde la red del
-      salón**, el mismo día o la víspera
-- [ ] Proyector probado con texto de tamaño de terminal, visible desde el fondo
-- [ ] Enchufes para todas las laptops
-- [ ] Wifi con capacidad confirmada para el aforo <!-- por definir: aforo -->
-
----
-
 ## Cosas medidas que conviene saber de antemano
 
 - **Cada participante usa su propia key gratuita — nunca una compartida.** Los límites
@@ -195,7 +137,7 @@ del taller, no durante).
 
 **No puedo crear una key en Google AI Studio.**
 Casi siempre es una cuenta institucional. Cambia a una cuenta Gmail personal — ver la
-advertencia destacada en la sección A.2.
+advertencia destacada más arriba.
 
 **`node -v` muestra una versión menor a 22.**
 Instala Node 22 LTS. Con `nvm` disponible en el repo (`.nvmrc`): `nvm install && nvm use`.
@@ -208,6 +150,6 @@ npm te funcionan, esta también debería). Si persiste, borra `node_modules` y
 
 **`npm run doctor` sale en rojo.**
 Antes del taller, en rojo por falta de credenciales (`.env` vacío o inexistente) es
-**el resultado esperado** — ver la sección 5 de arriba. Si en cambio falla en la
+**el resultado esperado** — ver el paso 5 de arriba. Si en cambio falla en la
 comprobación de Node o de dependencias, revisa los dos puntos anteriores de esta
 lista.
