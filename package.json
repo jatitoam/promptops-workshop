@@ -13,7 +13,8 @@
     "seed:judge": "tsx seed/judge.ts",
     "seed:index": "tsx seed/build-index.ts",
     "experiment": "tsx src/experiment.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "fix:trace": "tsx seed/fix-trace.ts"
   },
   "dependencies": {
     "@ai-sdk/google": "^4.0.51",

@@ -23,7 +23,7 @@ loadEnv();
 
 const { parseArgs } = await import("node:util");
 const { answerUser, askRaw } = await import("./agent.ts");
-const { initTelemetry, shutdownTelemetry } = await import("./telemetry.ts");
+const { initTelemetry, shutdownTelemetry, telemetriaActiva } = await import("./telemetry.ts");
 type PromptLabel = "v1-terse" | "v2-empathetic" | "v3-compliant" | "production";
 
 const CONSULTA_CANONICA =
@@ -213,14 +213,24 @@ async function main(): Promise<void> {
   const promptLabel = resolvePromptLabel(values.prompt as string | undefined);
 
   if (trace) {
-    const activa = initTelemetry();
+    // ─────────────────────────────────────────────────────────────────────
+    // ⬅  BLOQUE 5 · PEGA AQUÍ (1 de 2)
+    //
+    //    Enciende la instrumentación. La línea exacta está en `BLOQUE-5.md`.
+    //    Hasta que la pegues, `--trace` corre igual que `--rag` y NO crea
+    //    ninguna traza en Langfuse. Eso es a propósito: primero se ve el
+    //    "antes".
+    // ─────────────────────────────────────────────────────────────────────
+
+    const activa = telemetriaActiva();
     console.log(
       activa
         ? green("✓ Instrumentación de Langfuse activa — este turno queda trazado como ") +
             green('"support_chat".')
         : yellow(
-            "⚠️  --trace pedido pero faltan LANGFUSE_PUBLIC_KEY / LANGFUSE_SECRET_KEY en `.env` — " +
-              "corre sin trazar nada.",
+            "⚠️  --trace pedido pero la instrumentación NO está encendida: este turno no va a\n" +
+              "    crear ninguna traza. Pega las dos líneas del bloque 5 (ver `BLOQUE-5.md`),\n" +
+              "    o corre `npm run fix:trace` si te quedaste atrás.",
           ),
     );
     console.log("");
@@ -257,15 +267,22 @@ async function main(): Promise<void> {
 
 main()
   .then(async () => {
-    // Flush obligatorio: un CLI de un solo turno que sale sin vaciar el
-    // processor de spans pierde la traza en silencio (no da error — solo
-    // no aparece nada en Langfuse). Inocuo si --trace nunca se activó.
-    await shutdownTelemetry();
+    // ───────────────────────────────────────────────────────────────────────
+    // ⬅  BLOQUE 5 · PEGA AQUÍ (2 de 2)
+    //
+    //    Vacía los spans antes de que el proceso termine.
+    //
+    //    Este paso parece burocrático y no lo es: si lo omites, el turno se
+    //    traza igual pero el proceso sale antes de enviar nada, y la traza
+    //    **se pierde en silencio** — sin error, sin aviso, simplemente no
+    //    aparece en Langfuse. Es la lección del bloque, no un accidente.
+    // ───────────────────────────────────────────────────────────────────────
+
     process.exit(0);
   })
   .catch(async (err: unknown) => {
     const message = err instanceof Error ? err.message : String(err);
     console.error(red("✖ ") + message);
-    await shutdownTelemetry();
+    // ⬅  BLOQUE 5 · el mismo flush va también aquí, en el camino de error.
     process.exit(1);
   });

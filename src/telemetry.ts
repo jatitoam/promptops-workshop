@@ -49,6 +49,17 @@ let initialized = false;
  * Debe llamarse **después** de `loadEnv()` (que normaliza `LANGFUSE_HOST` →
  * `LANGFUSE_BASE_URL`) y **antes** de la primera llamada a `answerUser()`.
  */
+/**
+ * ¿Está encendida la instrumentación en este proceso?
+ *
+ * Existe para que `chat.ts` pueda decir la verdad en pantalla **antes** de que
+ * el participante pegue las dos líneas del bloque 5: sin ellas, `--trace` corre
+ * pero no traza nada, y el mensaje tiene que decirlo en vez de fingir.
+ */
+export function telemetriaActiva(): boolean {
+  return sdk !== undefined;
+}
+
 export function initTelemetry(): boolean {
   if (initialized) return true;
   initialized = true;
