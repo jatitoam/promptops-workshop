@@ -143,7 +143,7 @@ async function checkGeminiGeneration(): Promise<CheckResult> {
       "No se puede probar la generación con Gemini: falta `GOOGLE_GENERATIVE_AI_API_KEY`.",
     );
   }
-  const model = "gemini-3.5-flash";
+  const model = process.env.GENERATION_MODEL?.trim() || "gemini-3.5-flash-lite";
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
   try {
     const res = await fetch(url, {

@@ -34,10 +34,16 @@ export function loadEnv(): void {
 
   loadDotenv({ quiet: true });
 
-  // El SDK de Langfuse habla bastante en INFO/DEBUG. En un taller proyectado
-  // solo interesan advertencias y errores. Se puede subir el detalle poniendo
-  // LANGFUSE_LOG_LEVEL=DEBUG en el .env cuando algo no cuadre.
-  process.env.LANGFUSE_LOG_LEVEL ||= "WARN";
+  // El SDK de Langfuse escribe sus propios errores con ~40 líneas de stack
+  // trace. Un caso concreto los hace inevitables: entre crear el proyecto y
+  // correr `npm run seed:prompts` (bloque 4), pedir el prompt devuelve 404 —
+  // que es el estado NORMAL en ese momento, no un fallo. Proyectado en
+  // pantalla, ese volcado se lee como una catástrofe.
+  //
+  // Así que el SDK se calla y **los errores los reportamos nosotros**, en
+  // español y accionables. Para depurar de verdad: `LANGFUSE_LOG_LEVEL=DEBUG`
+  // en el `.env` (o `LANGFUSE_DEBUG=true`). Ver `GOTCHAS.md` G-12.
+  process.env.LANGFUSE_LOG_LEVEL ||= "NONE";
 
   const baseUrl = process.env.LANGFUSE_BASE_URL?.trim();
   const host = process.env.LANGFUSE_HOST?.trim();

@@ -15,23 +15,45 @@ import { retrieve, type RetrievedChunk } from "./rag.ts";
 import { lookupAccount, type AccountLookupResult } from "./tools.ts";
 import { getPrompt, type PromptLabel, type PromptOrigin } from "./prompts.ts";
 
-const GENERATION_MODEL = "gemini-3.5-flash";
+/**
+ * Modelo generador. Se puede sobrescribir con `GENERATION_MODEL` en el `.env`.
+ *
+ * La variable existe por una razón concreta: la capa gratuita de Gemini limita
+ * las peticiones **por día y por modelo**, así que si alguien agota su cupo a
+ * mitad del taller, cambiar de modelo le devuelve un cupo entero sin tocar el
+ * código. El respaldo probado es `gemini-3.1-flash-lite`. Ver `GOTCHAS.md` G-10.
+ */
+const GENERATION_MODEL = process.env.GENERATION_MODEL?.trim() || "gemini-3.5-flash-lite";
 const TEMPERATURE = 0.3;
 const MAX_OUTPUT_TOKENS = 512;
 
 /**
- * `gemini-3.5-flash` gasta razonamiento interno (thinking tokens) del mismo
- * presupuesto que `maxOutputTokens` por defecto — con `maxOutputTokens: 512`
- * (el equivalente directo del `max_tokens: 512` de Claude en el demo Python)
- * eso deja apenas ~20 tokens para la respuesta real y la corta a media
- * oración. Se desactiva el thinking para que los 512 tokens sean todos
- * texto de respuesta, que es el comportamiento que el taller necesita.
+ * Los modelos de Gemini gastan razonamiento interno (*thinking tokens*) del
+ * mismo presupuesto que `maxOutputTokens`. Con `maxOutputTokens: 512` —el
+ * equivalente directo del `max_tokens: 512` del demo Python— a `gemini-3.5-flash`
+ * le quedaban ~20 tokens para la respuesta real y la cortaba a media oración.
+ *
+ * `thinkingBudget: 0` lo desactiva y devuelve los 512 tokens al texto... pero
+ * **no todos los modelos lo aceptan**: `gemini-3.5-flash-lite` responde
+ * `400 INVALID_ARGUMENT` con `thinkingBudget: 0` (admite `-1` u omitirlo).
+ * Por eso la opción es por modelo y no global: el respaldo tiene que seguir
+ * funcionando si alguien cambia `GENERATION_MODEL` a mitad del taller.
+ * Ver `GOTCHAS.md` G-11.
  */
-const GOOGLE_PROVIDER_OPTIONS = {
-  google: {
-    thinkingConfig: { thinkingBudget: 0 },
-  },
-};
+const MODELOS_SIN_THINKING_DESACTIVABLE = ["gemini-3.5-flash-lite"];
+
+function providerOptionsPara(model: string) {
+  if (MODELOS_SIN_THINKING_DESACTIVABLE.includes(model)) return undefined;
+  return { google: { thinkingConfig: { thinkingBudget: 0 } } } as const;
+}
+
+const GOOGLE_PROVIDER_OPTIONS = providerOptionsPara(GENERATION_MODEL);
+
+/**
+ * Sin poder apagar el razonamiento hay que dejar margen para que el modelo
+ * piense Y responda; con el razonamiento apagado, 512 son todos de respuesta.
+ */
+const MAX_OUTPUT_TOKENS_EFECTIVO = GOOGLE_PROVIDER_OPTIONS ? MAX_OUTPUT_TOKENS : MAX_OUTPUT_TOKENS * 4;
 
 export interface AnswerUserOptions {
   /** Mensaje del cliente. */
@@ -134,7 +156,7 @@ export async function answerUser({
       system,
       prompt: userMessage,
       temperature: TEMPERATURE,
-      maxOutputTokens: MAX_OUTPUT_TOKENS,
+      maxOutputTokens: MAX_OUTPUT_TOKENS_EFECTIVO,
       providerOptions: GOOGLE_PROVIDER_OPTIONS,
     });
     reply = text;
@@ -171,7 +193,7 @@ export async function askRaw({ userMsg }: AskRawOptions): Promise<AskRawResult> 
       model: google(GENERATION_MODEL),
       prompt: userMsg,
       temperature: TEMPERATURE,
-      maxOutputTokens: MAX_OUTPUT_TOKENS,
+      maxOutputTokens: MAX_OUTPUT_TOKENS_EFECTIVO,
       providerOptions: GOOGLE_PROVIDER_OPTIONS,
     });
     return { reply: text };

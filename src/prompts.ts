@@ -95,9 +95,7 @@ async function loadLangfusePrompt(
   label: PromptLabel,
   vars: PromptVars,
 ): Promise<CompiledPrompt> {
-  const langfuse = new LangfuseClient();
-
-  const prompt = await langfuse.prompt.get(LANGFUSE_PROMPT_NAME, {
+  const prompt = await new LangfuseClient().prompt.get(LANGFUSE_PROMPT_NAME, {
     label,
     type: "chat",
   });
