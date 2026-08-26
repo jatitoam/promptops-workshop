@@ -13,9 +13,18 @@
     "seed:judge": "tsx seed/judge.ts",
     "seed:index": "tsx seed/build-index.ts",
     "experiment": "tsx src/experiment.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "fix:trace": "tsx seed/fix-trace.ts"
   },
   "dependencies": {
+    "@ai-sdk/google": "^4.0.51",
+    "@langfuse/client": "^5.10.1",
+    "@langfuse/otel": "^5.10.1",
+    "@langfuse/tracing": "^5.10.1",
+    "@langfuse/vercel-ai-sdk": "^5.10.1",
+    "@opentelemetry/api": "^1.9.1",
+    "@opentelemetry/sdk-node": "^0.221.0",
+    "ai": "^7.0.79",
     "dotenv": "^17.4.2",
     "zod": "^4.4.3"
   },

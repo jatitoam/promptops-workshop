@@ -8,7 +8,7 @@
  */
 
 import { existsSync, readFileSync } from "node:fs";
-import { config as loadDotenv } from "dotenv";
+import { loadEnv, langfuseBaseUrl } from "./env.ts";
 
 type Status = "ok" | "warn" | "fail";
 
@@ -72,9 +72,8 @@ function checkEnvFileExists(): CheckResult {
         "y completa tus credenciales (`cp .env.example .env`).",
     );
   }
-  // `quiet: true` calla el banner publicitario que dotenv v17 imprime a stdout;
-  // el reporte del doctor se proyecta en pantalla y tiene que salir limpio.
-  loadDotenv({ quiet: true });
+  // loadEnv() calla el banner de dotenv y normaliza LANGFUSE_HOST -> LANGFUSE_BASE_URL.
+  loadEnv();
   return report("ok", "Archivo `.env` encontrado y cargado.");
 }
 
@@ -86,7 +85,7 @@ const REQUIRED_VARS = [
   "GROQ_API_KEY",
   "LANGFUSE_PUBLIC_KEY",
   "LANGFUSE_SECRET_KEY",
-  "LANGFUSE_HOST",
+  "LANGFUSE_BASE_URL",
 ] as const;
 
 function checkRequiredVars(): CheckResult {
@@ -101,8 +100,9 @@ function checkRequiredVars(): CheckResult {
     "fail",
     `Faltan estas variables en \`.env\`: ${missing.join(", ")}. ` +
       "Cuidado con dos trampas de nombre que fallan en silencio: " +
-      "usa `LANGFUSE_HOST` (no `LANGFUSE_BASE_URL`) y " +
-      "`GOOGLE_GENERATIVE_AI_API_KEY` (no `GEMINI_API_KEY`). " +
+      "en JavaScript la variable es `LANGFUSE_BASE_URL` (no `LANGFUSE_HOST`, que es el " +
+      "nombre del SDK de Python), y la de Google es `GOOGLE_GENERATIVE_AI_API_KEY` " +
+      "(no `GEMINI_API_KEY`). " +
       "Nunca se imprime el valor de una credencial, solo su nombre.",
   );
 }
@@ -143,7 +143,7 @@ async function checkGeminiGeneration(): Promise<CheckResult> {
       "No se puede probar la generación con Gemini: falta `GOOGLE_GENERATIVE_AI_API_KEY`.",
     );
   }
-  const model = "gemini-3.5-flash";
+  const model = process.env.GENERATION_MODEL?.trim() || "gemini-3.5-flash-lite";
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
   try {
     const res = await fetch(url, {
@@ -281,16 +281,16 @@ async function checkGeminiEmbedding(): Promise<CheckResult> {
 async function checkLangfuse(): Promise<CheckResult> {
   const publicKey = process.env.LANGFUSE_PUBLIC_KEY?.trim();
   const secretKey = process.env.LANGFUSE_SECRET_KEY?.trim();
-  const host = process.env.LANGFUSE_HOST?.trim();
+  const host = langfuseBaseUrl();
 
   if (!publicKey || !secretKey || !host) {
     return report(
       "fail",
-      "No se puede probar Langfuse: faltan `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY` o `LANGFUSE_HOST`.",
+      "No se puede probar Langfuse: faltan `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY` o `LANGFUSE_BASE_URL`.",
     );
   }
 
-  const url = `${host.replace(/\/$/, "")}/api/public/projects`;
+  const url = `${host}/api/public/projects`;
   const auth = Buffer.from(`${publicKey}:${secretKey}`).toString("base64");
 
   try {
@@ -304,7 +304,10 @@ async function checkLangfuse(): Promise<CheckResult> {
     if (res.status === 401 || res.status === 403) {
       return report(
         "fail",
-        `Langfuse devolvió ${res.status} → las keys de Langfuse no corresponden al host configurado.`,
+        `Langfuse devolvió ${res.status} → o las keys no son de este proyecto, o ` +
+          `\`LANGFUSE_BASE_URL\` apunta a la región equivocada. Ojo: con el nombre ` +
+          "`LANGFUSE_HOST` el SDK de JS ignora el valor y se va a la región UE por defecto, " +
+          "y el error se lee igual que unas keys malas.",
       );
     }
     return report(
@@ -367,7 +370,7 @@ async function main(): Promise<void> {
       : report(
           "fail",
           "Sin `.env` no se pueden validar las variables de entorno " +
-            "(GOOGLE_GENERATIVE_AI_API_KEY, GROQ_API_KEY, LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY, LANGFUSE_HOST).",
+            "(GOOGLE_GENERATIVE_AI_API_KEY, GROQ_API_KEY, LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY, LANGFUSE_BASE_URL).",
         ),
   );
   results.push(checkPolicyIndex());

@@ -5,6 +5,10 @@
     "moduleResolution": "NodeNext",
     "strict": true,
     "noEmit": true,
+    // Permite `import { x } from "./modulo.ts"` con la extensión real del archivo.
+    // Para quien lee el repo en el taller, ver `.ts` es menos confuso que el `.js`
+    // que exigiría NodeNext, y como no emitimos nada no tiene coste.
+    "allowImportingTsExtensions": true,
     "skipLibCheck": true,
     "types": ["node"],
     "forceConsistentCasingInFileNames": true,
