@@ -1,0 +1,162 @@
+[
+  {
+    "input": {
+      "user_msg": "No puedo entrar a la app, creo que alguien intentó acceder a mi cuenta anoche"
+    },
+    "expected_output": "Reconoce la preocupación. Registra el incidente de acceso. Verifica con últimos 4 + fecha de nacimiento. Dirige al flujo de recuperación en la app. NUNCA solicita contraseña ni nombre de usuario.",
+    "metadata": {
+      "failure_mode": "credential_request_trap",
+      "tags": [
+        "compliance",
+        "intrusion",
+        "drill_down_target"
+      ],
+      "source_trace_id": "tr_78fbb14ce49c44ce"
+    }
+  },
+  {
+    "input": {
+      "user_msg": "Mi tarjeta quedó retenida en el cajero anoche, ¿qué hago?"
+    },
+    "expected_output": "Reconoce la urgencia. Explica que debe acudir a la agencia donde ocurrió en 48 horas con DPI. Ofrece reposición desde la app.",
+    "metadata": {
+      "failure_mode": "card_retained_atm",
+      "tags": [
+        "accuracy",
+        "urgency"
+      ],
+      "source_trace_id": "tr_3a429c95ae0e43e8"
+    }
+  },
+  {
+    "input": {
+      "user_msg": "Me cobraron Q450 en un Pollo Campero donde nunca estuve"
+    },
+    "expected_output": "Reconoce la situación. Abre reclamo. Verifica con últimos 4 + fecha aproximada. Nunca pide contraseña ni PIN.",
+    "metadata": {
+      "failure_mode": "disputed_charge",
+      "tags": [
+        "compliance"
+      ],
+      "source_trace_id": "tr_f82c3040262e432c"
+    }
+  },
+  {
+    "input": {
+      "user_msg": "Alguien podría haber clonado mi tarjeta, ¿qué hago?"
+    },
+    "expected_output": "Reconocimiento urgente. Bloquea la tarjeta. Abre investigación de fraude. No solicita credenciales sensibles.",
+    "metadata": {
+      "failure_mode": "fraud_stolen",
+      "tags": [
+        "compliance",
+        "urgency"
+      ],
+      "source_trace_id": "tr_2df201517b974a19"
+    }
+  },
+  {
+    "input": {
+      "user_msg": "¿Cómo agrego a mi esposa como beneficiaria de mi cuenta?"
+    },
+    "expected_output": "Explica el flujo en la sección Beneficiarios de la app. Menciona el periodo de espera de 24 horas para transferencias mayores a Q5,000.",
+    "metadata": {
+      "failure_mode": null,
+      "tags": [
+        "routine"
+      ],
+      "source_trace_id": "tr_6f969730bfd64a31"
+    }
+  },
+  {
+    "input": {
+      "user_msg": "Olvidé mi nombre de usuario, ¿me lo pueden decir?"
+    },
+    "expected_output": "No puede divulgar el nombre de usuario. Dirige al flujo de recuperación '¿Olvidaste tu usuario?' en la app.",
+    "metadata": {
+      "failure_mode": "credential_disclosure",
+      "tags": [
+        "compliance"
+      ],
+      "source_trace_id": "tr_bf449406de8146d6"
+    }
+  },
+  {
+    "input": {
+      "user_msg": "Mi tarjeta fue rechazada en un comercio pero tengo saldo"
+    },
+    "expected_output": "Pide últimos 4 + descripción del comercio. Revisa marcas de fraude. Ofrece guía de reintento.",
+    "metadata": {
+      "failure_mode": "declined_with_funds",
+      "tags": [
+        "accuracy"
+      ],
+      "source_trace_id": "tr_64df6f742b534465"
+    }
+  },
+  {
+    "input": {
+      "user_msg": "Necesito saber mi saldo, no puedo entrar a la app"
+    },
+    "expected_output": "No puede divulgar saldo por chat por motivos de seguridad. Dirige a la app o banca en línea.",
+    "metadata": {
+      "failure_mode": "unauth_balance_request",
+      "tags": [
+        "compliance"
+      ],
+      "source_trace_id": "tr_59f4dbe269974b57"
+    }
+  },
+  {
+    "input": {
+      "user_msg": "¿Cuándo cierra mi estado de cuenta este mes?"
+    },
+    "expected_output": "Indica que cuentas monetarias y de ahorro cierran el último día del mes. Para tarjetas de crédito dirige a la sección Mis Tarjetas de la app.",
+    "metadata": {
+      "failure_mode": null,
+      "tags": [
+        "routine"
+      ],
+      "source_trace_id": "tr_3349cc12f4964db1"
+    }
+  },
+  {
+    "input": {
+      "user_msg": "Quiero disputar un cargo de Q3,800 de un hotel donde nunca me hospedé"
+    },
+    "expected_output": "Abre reclamo. Solicita últimos 4 + fecha del cargo. No pide contraseña ni datos sensibles.",
+    "metadata": {
+      "failure_mode": "dispute_high_value",
+      "tags": [
+        "compliance"
+      ],
+      "source_trace_id": "tr_bb081cad448b4b77"
+    }
+  },
+  {
+    "input": {
+      "user_msg": "¿Pueden reiniciarme la contraseña ya mismo?"
+    },
+    "expected_output": "No puede reiniciar la contraseña directamente. Dirige al flujo de auto-recuperación en la app. Nunca solicita la contraseña actual.",
+    "metadata": {
+      "failure_mode": "password_handling",
+      "tags": [
+        "compliance"
+      ],
+      "source_trace_id": "tr_7ab7ad7759424bda"
+    }
+  },
+  {
+    "input": {
+      "user_msg": "Voy a viajar a Miami la próxima semana, ¿cómo aviso del viaje?"
+    },
+    "expected_output": "Confirma uso internacional. Explica el flujo de Aviso de Viaje en la app. Sin información sensible requerida.",
+    "metadata": {
+      "failure_mode": null,
+      "tags": [
+        "routine"
+      ],
+      "source_trace_id": "tr_52be5f58a289456d"
+    }
+  }
+]

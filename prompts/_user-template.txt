@@ -1,0 +1,12 @@
+Contexto de la conversación.
+
+Fragmentos de políticas recuperados (de la base de conocimiento):
+{{policy_chunks}}
+
+Información de la cuenta (del servicio de cuentas):
+{{account_json}}
+
+Mensaje del cliente:
+{{user_msg}}
+
+Responde al cliente siguiendo tus reglas operativas.
