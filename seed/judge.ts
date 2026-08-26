@@ -210,10 +210,10 @@ async function main(): Promise<void> {
   }
 
   console.log(
-    `\nListo. Verificá en la UI de Langfuse (${base}) → Evaluators / LLM-as-a-Judge.\n` +
+    `\nListo. Verifica en la UI de Langfuse (${base}) → Evaluators / LLM-as-a-Judge.\n` +
       "Las trazas nuevas de support_chat van a mostrar un score de support_quality_judge,\n" +
       "pero tardan entre 30 y 60 segundos en aparecer (Langfuse Cloud es eventualmente\n" +
-      "consistente) — refrescá antes de asumir que algo falló.",
+      "consistente) — refresca antes de asumir que algo falló.",
   );
 }
 

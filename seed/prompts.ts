@@ -82,7 +82,7 @@ async function main(): Promise<void> {
 
   const base = langfuseBaseUrl() ?? "(host no configurado)";
   console.log(
-    `\nListo. Verificá en la UI de Langfuse (${base}) → Prompts → support-bot.\n` +
+    `\nListo. Verifica en la UI de Langfuse (${base}) → Prompts → support-bot.\n` +
       "Deberías ver 4 etiquetas activas (v1-terse, v2-empathetic, v3-compliant, production),\n" +
       "con v2-empathetic y v3-compliant apuntando a system prompts distintos, y production\n" +
       "apuntando al mismo contenido que v3-compliant.",
