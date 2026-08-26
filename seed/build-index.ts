@@ -24,6 +24,7 @@ const OUTPUT_PATH = "data/policy-index.json";
 const EMBEDDING_MODEL = "gemini-embedding-001";
 const OUTPUT_DIMENSIONALITY = 768;
 const MIN_PARAGRAPH_LENGTH = 80;
+const DECIMALES_VECTOR = 6;
 
 interface Chunk {
   text: string;
@@ -119,10 +120,20 @@ async function main(): Promise<void> {
     model: EMBEDDING_MODEL,
     dimensions: OUTPUT_DIMENSIONALITY,
     generatedAt: new Date().toISOString(),
-    chunks: chunks.map((c, i) => ({ ...c, vector: embeddings[i] })),
+    // Los vectores se redondean a 6 decimales. Medido: no altera el orden del
+    // ranking (desviación máxima de similitud 8,5e-7, y las similitudes se
+    // muestran con 4 decimales), y recorta el archivo commiteado casi a la
+    // mitad. Ver `GOTCHAS.md` G-18.
+    chunks: chunks.map((c, i) => ({
+      ...c,
+      vector: embeddings[i].map((v) => Number(v.toFixed(DECIMALES_VECTOR))),
+    })),
   };
 
-  writeFileSync(OUTPUT_PATH, JSON.stringify(index, null, 2));
+  // Sin indentar, a propósito: con `null, 2` cada uno de los ~24.500 floats
+  // ocupaba su propia línea y el archivo eran 24.774 líneas que ensuciaban
+  // todos los diffs. Es un artefacto generado, no se lee a mano.
+  writeFileSync(OUTPUT_PATH, JSON.stringify(index));
   const sizeKb = (statSync(OUTPUT_PATH).size / 1024).toFixed(1);
 
   console.log(

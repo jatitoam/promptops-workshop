@@ -1,0 +1,3 @@
+# Índice RAG precomputado: artefacto generado por `npm run seed:index`.
+# Se versiona a propósito (ver DEFINITION.md §4.4) pero no se revisa a mano.
+data/policy-index.json linguist-generated=true -diff
