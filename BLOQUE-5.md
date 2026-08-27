@@ -50,6 +50,11 @@ support_chat
 
 **Checkpoint del bloque:** ves tu propia traza completa, en tu propio proyecto.
 
+Fíjate también en la línea `Origen del prompt: langfuse`. Pediste `--prompt v2`,
+no `production`, y aun así el prompt lo sirvió Langfuse por etiqueta: desde que
+pegaste tus credenciales en el bloque 4, **todas** las variantes se resuelven así
+y el `.txt` del repo quedó solo como respaldo.
+
 > ⏳ **La traza tarda entre 30 y 60 segundos en aparecer.** Langfuse Cloud es
 > eventualmente consistente: el comando ya terminó y en la UI todavía no hay
 > nada. **Refresca antes de concluir que falló** — es el error de diagnóstico
